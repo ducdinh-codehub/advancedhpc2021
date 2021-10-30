@@ -12,9 +12,9 @@ Students are expected to:
 Student Info
 =======================
 
-* Name: MyName
-* Key:
-
+* Name: Dinh Anh Duc
+* Key:  M20.ICT.001
+ 
 ```
 ssh-rsa ThisIsSampleKey
 ```
