@@ -1,9 +1,8 @@
-\documentclass[10pt, a4paper]{article}
+\documentclass{article}
 
 \usepackage[utf8]{inputenc}
-\usepackage[left=2cm, right=2cm, top=3cm, bottom=3cm]{geometry}
-\usepackage{graphicx}
-\usepackage{minted}
+\usepackage[a4paper, left=2cm, right=2cm, top=3cm, bottom=3cm]{geometry}
+\usepackage{listings}
 
 \title{Advaned Programming fo HPC - Report 1}
 \author{Dinh Anh Duc}
@@ -18,7 +17,7 @@
 \item Added the calculation code from labwork1_CPU() to labwork1_OpenMP()
 \item Added the line # pragma omp parallel for 
 \end{itemize}
-\begin{minted}{C++}
+\begin{lstlisting}
 void Labwork::labwork1_OpenMP() {
     printf("Open MP");
     int pixelCount = inputImage->width * inputImage->height;
@@ -33,7 +32,7 @@ void Labwork::labwork1_OpenMP() {
         }
     }
 }
-\end{minted}
+\end{lstlisting}
 \\
 \textbf{What is the speed up ?}
 \\
