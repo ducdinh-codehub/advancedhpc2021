@@ -154,9 +154,18 @@ void Labwork::labwork2_GPU() {
     printf("Number total of GPU : %d\n\n", nDevices);
     for (int i = 0; i < nDevices; i++){
         // get informations from individual device
-        cudaDeviceProp prop;
+        printf("------------------------------------\n");
+	cudaDeviceProp prop;
         cudaGetDeviceProperties(&prop, i);
         // something more here
+	printf("Name: %s\n", prop.name);
+	printf("Clock rate: %d\n", prop.clockRate);
+	printf("Core count: %d\n", getSPcores(prop));
+	printf("Multiprocessors: %d\n", prop.multiProcessorCount);
+	printf("Warp size: %d\n", prop.warpSize);
+	printf("Memory info\n");
+	printf("Memory clock rate: %d\n", prop.memoryClockRate);
+	printf("Memory bus width: %d\n", prop.memoryBusWidth);
     }
 
 }
