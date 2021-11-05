@@ -16,7 +16,7 @@ int main(int argc, char **argv) {
 
     int lwNum = atoi(argv[1]);
     std::string inputFilename;
-    bool is_shared = true;
+    bool is_shared = false;
     // pre-initialize CUDA to avoid incorrect profiling
     printf("Warming up...\n");
     char *temp;
