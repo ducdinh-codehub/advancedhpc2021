@@ -63,7 +63,8 @@ int main(int argc, char **argv) {
             break;
         case 6:
             labwork.labwork6_GPU();
-            labwork.saveOutputImage("labwork6-gpu-out.jpg");
+            labwork.saveOutputImage("labwork6-gpu-outjpg");
+            labwork.saveOutputImage("/tmp/labwork6-gpu-out.jpg");
             break;
         case 7:
             labwork.labwork7_GPU();
@@ -461,11 +462,11 @@ void Labwork::labwork6_GPU() {
     cudaMemcpy(devInput, inputImage->buffer, pixelCount*3, cudaMemcpyHostToDevice); // Perfect version
 
     // Processing
-    dim3 blockSize = dim3(32, 32);
+    dim3 blockSize = dim3(16, 16);
     dim3 gridSize = ((int) ((inputImage->width + blockSize.x - 1)/blockSize.x), (int)((inputImage->height + blockSize.y - 1)/blockSize.y));
 
-    grayscale_2d<<<gridSize, blockSize>>>(devInput, devGray, inputImage->width, inputImage->height);
-    labwork6_a<<<gridSize, blockSize>>>(devGray, devOutput, inputImage->width, inputImage->height);
+    grayscale_2d<<<gridSize, blockSize>>>(devInput, devOutput, inputImage->width, inputImage->height);
+    //labwork6_a<<<gridSize, blockSize>>>(devGray, devOutput, inputImage->width, inputImage->height);
 
     // Copy CUDA Memory from GPU to CPU
     cudaMemcpy(outputImage, devOutput, pixelCount*3, cudaMemcpyDeviceToHost); // Perfect version 
