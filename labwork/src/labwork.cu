@@ -16,7 +16,7 @@ int main(int argc, char **argv) {
 
     int lwNum = atoi(argv[1]);
     std::string inputFilename;
-
+    bool is_shared = true;
     // pre-initialize CUDA to avoid incorrect profiling
     printf("Warming up...\n");
     char *temp;
@@ -54,8 +54,12 @@ int main(int argc, char **argv) {
             labwork.labwork5_CPU();
             labwork.saveOutputImage("labwork5-cpu-out.jpg");
             
-            labwork.labwork5_GPU(false);
-            labwork.saveOutputImage("labwork5-gpu-out.jpg");
+            labwork.labwork5_GPU(is_shared);
+            if(is_shared==false){
+                labwork.saveOutputImage("labwork5-gpu-out-no-shared.jpg");
+            }else{
+                labwork.saveOutputImage("labwork5-gpu-out-shared.jpg");
+            }
             break;
         case 6:
             labwork.labwork6_GPU();
@@ -360,6 +364,42 @@ __global__ void gaussianNoShared(uchar3 *input, uchar3 *output, int imgWidth, in
         output[tid].y = sumG/1003;
         output[tid].z = sumB/1003;
 }
+__global__ void gaussianShared(uchar3 *input, uchar3 *output, int imgWidth, int imgHeight){
+        float gaussianBlur[7][7]={
+            {0,   0,   1,   2,   1,   0,   0},
+            {0,   3,   13,  22,  13,  3,   0},
+            {1,   13,  59,  97,  59,  13,  1},
+            {2,   22,  97,  159, 97,  22,  2},
+            {1,   13,  59,  97,  59,  13,  1},
+            {0,   3,   13,  22,  13,  3,   0},
+            {0,   0,   1,   2,   1,   0,   0}
+        };
+        
+        int col = threadIdx.x + blockIdx.x + blockDim.x;
+        int row = threadIdx.y + blockIdx.y + blockDim.y;
+        int tid = row * imgWidth + col;
+
+        __shared__ float gb[7][7];
+        gb[threadIdx.x][threadIdx.y] = gaussianBlur[row][col];
+        __syncthreads();
+
+        int sumR = 0;
+        int sumG = 0;
+        int sumB = 0;
+        for (int j = 0; j < 7; j++) {
+            for (int i = 0; i < 7; i++) {
+                int cell_id = tid + i + j * imgWidth;
+                sumR += input[cell_id].x * gb[threadIdx.x][threadIdx.y];
+                sumG += input[cell_id].y * gb[threadIdx.x][threadIdx.y];
+                sumB += input[cell_id].z * gb[threadIdx.x][threadIdx.y];
+            }
+        }
+    
+        output[tid].x = sumR/1003;
+        output[tid].y = sumG/1003;
+        output[tid].z = sumB/1003;
+
+}
 void Labwork::labwork5_GPU(bool shared) {
     // Calculate number of pixels
     int pixelCount = inputImage->width * inputImage->height;	
@@ -378,6 +418,8 @@ void Labwork::labwork5_GPU(bool shared) {
     dim3 gridSize = ((int) ((inputImage->width + blockSize.x - 1)/blockSize.x), (int)((inputImage->height + blockSize.y - 1)/blockSize.y));
     if(shared == false){
         gaussianNoShared<<<gridSize, blockSize>>>(devInput, devOutput, inputImage->width, inputImage->height);
+    }else{
+        gaussianShared<<<gridSize, blockSize>>>(devInput, devOutput, inputImage->width, inputImage->height);
     }
     // Copy CUDA Memory from GPU to CPU
     cudaMemcpy(inputImage, devOutput, pixelCount, cudaMemcpyHostToDevice);
