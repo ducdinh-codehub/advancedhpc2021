@@ -434,7 +434,7 @@ __device__ int binarization(int input, int threshold){
     if(input < threshold){
         return 0;
     }else{
-        return 1;
+        return 255;
     }
 }
 __device__ int brightness(){
@@ -462,17 +462,8 @@ void Labwork::labwork6_GPU() {
     // Calculate number of pixels
     int pixelCount = inputImage->width * inputImage->height;	
     char *hostInput = inputImage->buffer; // Perfect version
-    //char *hostInput = (char*) malloc(inputImage->width * inputImage->height * 3); // Test version
-    //char *hostOutput = new char[inputImage->width * inputImage->height * 3]; // Test version
-    outputImage = static_cast<char *>(malloc(pixelCount * 3));
-    for (int j = 0; j < 100; j++) {     // let's do it 100 times, otherwise it$
-        # pragma omp parallel for
-        for (int i = 0; i < pixelCount; i++) {
-            outputImage[i * 3] = (char) (((int) inputImage->buffer[i * 3] + (int) inputImage->buffer[i * 3 + 1] + (int) inputImage->buffer[i * 3 + 2]) / 3);
-            outputImage[i * 3 + 1] = outputImage[i * 3];
-            outputImage[i * 3 + 2] = outputImage[i * 3];
-        }
-    }
+    labwork4_GPU();
+    char *grayImage = outputImage;
 
     // Allocate CUDA memory    
     uchar3 *devInput;
