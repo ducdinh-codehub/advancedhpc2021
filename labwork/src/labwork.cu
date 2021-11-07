@@ -477,53 +477,48 @@ void Labwork::labwork6_GPU() {
     cudaFree(devOutput);
     cudaFree(devGray);
 }
-__device__ float cal(int input, int max, int min){
-    return (int)((input - min)/(max - min)) * 255;
+__device__ char cal(char input, char max, int min){
+    char grayStretch = (float)((input - min)/(max - min)) * 255;
+    return grayStretch;
 }
 
-__global__ void find_max(uchar3 *in, uchar3 *out, int *maxVar) {
+__global__ void find_max(char *in, char *out) {
     // dynamic shared memory size, allocated in host
-    extern __shared__ uchar3 cache[];
+    extern __shared__ char cache[];
     // cache the block content
-    unsigned int localtid = threadIdx.x;
-    unsigned int tid = threadIdx.x + blockIdx.x * blockDim.x;
-    //cache[localtid] = in[tid];
-    //__syncthreads();
-    // reduction in cache
-    //maxVar[0] = cache[tid].x;
-    //maxVar[0] = 6;
-    //for (int s = 1; s < blockDim.x; s *= 2) {
-    //    if (cache[tid + s].x > maxVar[0]) {
-    //        maxVar[0] = cache[tid + s].x;
-    //    }
-    //__syncthreads();
-    //}
-    // only first thread writes back
-    //if (localtid == 0) out[blockIdx.x] = cache[0];
-}
-
-__global__ void find_min(uchar3 *in, uchar3 *out, int *minVar) {
-    // dynamic shared memory size, allocated in host
-    extern __shared__ uchar3 cache[];
-    // cache the block content
-    unsigned int localtid = threadIdx.x;
-    unsigned int tid = threadIdx.x + blockIdx.x * blockDim.x;
+    unsigned int blockSize = blockDim.x * blockDim.y;
+    unsigned int localtid = threadIdx.x + blockIdx.x * blockDim.x;
+    unsigned int tid = blockIdx.x + blockSize + localtid;
     cache[localtid] = in[tid];
     __syncthreads();
     // reduction in cache
-    //minVar[0] = cache[tid].x;
-    minVar[0] = 5;
     for (int s = 1; s < blockDim.x; s *= 2) {
-        if (cache[tid + s].x < minVar[0]){
-            //minVar = cache[tid + s].x;
-        }
-    __syncthreads();
+        cache[localtid] = max(cache[localtid], cache[localtid + s]);
+        __syncthreads();
     }
     // only first thread writes back
     if (localtid == 0) out[blockIdx.x] = cache[0];
 }
 
-__global__ void Calculate(uchar3 *in, uchar3 *out, int imgWidth, int imgHeight, int *max, int *min){
+__global__ void find_min(char *in, char *out) {
+    // dynamic shared memory size, allocated in host
+    extern __shared__ char cache[];
+    // cache the block content
+    unsigned int blockSize = blockDim.x * blockDim.y;
+    unsigned int localtid = threadIdx.x + blockIdx.x * blockDim.x;
+    unsigned int tid = blockIdx.x + blockSize + localtid;
+    cache[localtid] = in[tid];
+    __syncthreads();
+    // reduction in cache
+    for (int s = 1; s < blockDim.x; s *= 2) {
+        cache[localtid] = min(cache[localtid], cache[localtid + s]);
+        __syncthreads();
+    }
+    // only first thread writes back
+    if (localtid == 0) out[blockIdx.x] = cache[0];
+}
+
+__global__ void Calculate(char *in, char *out, int imgWidth, int imgHeight, char *max, char *min){
     int col = threadIdx.x + blockIdx.x * blockDim.x;
     int row = threadIdx.y + blockIdx.y * blockDim.y;
     if(col > imgHeight || row > imgWidth){
@@ -533,43 +528,40 @@ __global__ void Calculate(uchar3 *in, uchar3 *out, int imgWidth, int imgHeight, 
 
     int threshold = 128;
 
-    out[tid].x = cal(in[tid].x, max[0], min[0]);
-    out[tid].z = out[tid].y = out[tid].x;
+    char grayStretch = cal(in[tid], max[0], min[0]);
+    out[tid * 3] = out[tid * 3 + 1] = out[tid * 3 + 2] = grayStretch;
 }
 
 void Labwork::labwork7_GPU() {
     // Calculate number of pixels
-    int* maxVar;
-    int* minVar;
+    char* maxVar;
+    char* minVar;
 
     int pixelCount = inputImage->width * inputImage->height;	
 
     outputImage = static_cast<char *>(malloc(pixelCount * 3));
     // Allocate CUDA memory    
-    uchar3 *devInput;
-    uchar3 *devOutput;
-    uchar3 *devGray;
+    char *devInput;
+    char *devOutput;
 
     cudaMalloc(&devInput, pixelCount*3); // Perfect version
     cudaMalloc(&devOutput, pixelCount*3); // Perfect version
-    cudaMalloc(&devGray, pixelCount*3); // Perfect version
 
-    cudaMalloc(&maxVar, sizeof(int));
-    cudaMalloc(&minVar, sizeof(int));
-    // Copy CUDA Memory from CPU to GPU
     cudaMemcpy(devInput, inputImage->buffer, pixelCount*3, cudaMemcpyHostToDevice); // Perfect version
+
+
+    cudaMalloc(&maxVar, pixelCount*3);
+    cudaMalloc(&minVar, pixelCount*3);
+    // Copy CUDA Memory from CPU to GPU
 
     // Processing
     dim3 blockSize = dim3(32, 32);
     dim3 gridSize = dim3((int) ((inputImage->width + blockSize.x - 1)/blockSize.x), (int)((inputImage->height + blockSize.y - 1)/blockSize.y));
 
-    find_max<<<gridSize, blockSize, blockSize.x>>>(devInput, devOutput, maxVar);
-    //find_min<<<gridSize, blockSize>>>(devInput, devOutput, minVar);
-        printf("maxVar: %d",maxVar[0]);
-    //printf("minVar: %d",minVar[0]);
-    //Calculate<<<gridSize, blockSize>>>(devInput, devOutput, inputImage->width, inputImage->height, maxVar, minVar);
+    find_max<<<gridSize, blockSize, blockSize.x*blockSize.y>>>(devInput, maxVar);
+    find_min<<<gridSize, blockSize, blockSize.x*blockSize.y>>>(devInput, minVar);
+    Calculate<<<gridSize, blockSize>>>(devInput, devOutput, inputImage->width, inputImage->height, maxVar, minVar);
 
-    //labwork6_a<<<gridSize, blockSize>>>(devGray, devOutput, inputImage->width, inputImage->height);
 
     // Copy CUDA Memory from GPU to CPU
     cudaMemcpy(outputImage, devOutput, pixelCount*3, cudaMemcpyDeviceToHost); // Perfect version 
@@ -578,7 +570,8 @@ void Labwork::labwork7_GPU() {
     
     cudaFree(devInput);
     cudaFree(devOutput);
-    cudaFree(devGray);
+    cudaFree(maxVar);
+    cudaFree(minVar);
 }
 
 void Labwork::labwork8_GPU() {
