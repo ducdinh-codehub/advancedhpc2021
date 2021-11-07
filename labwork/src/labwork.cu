@@ -573,7 +573,28 @@ void Labwork::labwork7_GPU() {
     cudaFree(maxVar);
     cudaFree(minVar);
 }
+__global__ void RGB2HSV(uchar3 *in, uchar3 *out, int *H, int *S, int *V, int img_width, int imgHeight){
+    int row = threadIdx.x + blockIdx.x * blockDim.x;
+    int col = threadIdx.y + blockIdx.y * blockDim.y;
+    int tid = col + row * img_width;
 
+    float R = input[tid].x/255.0;
+    float G = input[tid].y/255.0;
+    float B = input[tid].z/255.0;
+
+    float maxRG = max(R,G);
+    float minRG = min(R,G);
+    float max = max(maxRG,B);
+    float min = min(minRG,B);
+
+    float delta = max - min;
+
+    if(dealta == 0.0){
+        H[tid] = 0;
+        S[tid] = 0;
+    }
+
+}
 void Labwork::labwork8_GPU() {
 }
 
